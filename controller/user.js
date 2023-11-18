@@ -213,7 +213,55 @@ const getUserByToken = async(req,res,next)=>{
   //tugas lengkapi codingan
   //hanya user yang telah login bisa mengambil data dirinya dengan mengirimkan token
   //step 1 ambil token
+  try {
+    const authorization = req.headers.authorization;
+    let token;
+    if(authorization !== null & authorization.startsWith("Bearer ")){
+      token = authorization.substring(7); 
+    }else{  
+      const error = new Error("You need to login");
+      error.statusCode = 400;
+      throw error;
+    }
 
+    const decoded = jwt.verify(token, key);
+    
+    //decoded akan punya payload/data role & userId
+    const loggedUser = await User.findOne(
+      {
+        where: {id: decoded.userId},
+        include: {
+          model: Division,
+          attributes: ['name']
+        }
+      }
+    );
+
+    if(!loggedUser){
+      const error = new Error(`User with id ${id} not exist!`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    res.status(200).json({
+      status: "Success",
+      message: "Successfuly fetch user data",
+      user:{
+        id: loggedUser.id,
+        fullname: loggedUser.fullName,
+        angkatan: loggedUser.angkatan,
+        divisi:{
+          name: loggedUser.division.name
+        }
+      }
+    })
+
+  } catch (error) {
+    res.status(error.statusCode || 500).json({
+      status: "Error",
+      message: error.message,
+    })
+  }
 
   //step 2 ekstrak payload menggunakan jwt.verify
 
