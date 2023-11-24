@@ -4,6 +4,8 @@ const User = require('../model/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const key = process.env.TOKEN_SECRET_KEY;
+const cloudinary = require('../util/cloudynary_config');
+const fs = require('fs');
 
 const getAllUser = async(req, res, next)=>{
   try {
@@ -268,6 +270,98 @@ const getUserByToken = async(req,res,next)=>{
   //step 3 cari user berdasarkan payload.userId
 }
 
+const editUserAccount = async(req,res,next)=>{
+  try{
+    const authorization = req.headers.authorization;
+    const {fullName, nim, angkatan, divisi}=req.body;
+    let token;
+    if(authorization !== null & authorization.startsWith("Bearer ")){
+      token = authorization.substring(7); 
+    }else{  
+      const error = new Error("You need to login");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const decoded = jwt.verify(token, key);
+    const currentUser = await User.findOne({
+      where:decoded.userId,
+      include: {
+        model: Division,
+        attributes: ['name']
+      }
+    }
+    )
+
+    if(!currentUser){
+      const error = new Error(`User with id ${id} not exist!`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    let imageUrl;
+    //proses datanya
+    if(req.file){
+      const file = req.file;
+      //console.log(file);
+      try{
+        const uploadOption={
+        folder:'Profile_Member/',
+        public_id:`user_${currentUser.id}`,
+        overwrite:true
+        }
+        const uploadFile =  await cloudinary.uploader.upload(file.path, uploadOption);
+        imageUrl = uploadFile.secure_url;
+        //hapus file dari direktori file
+        fs.unlinkSync(file.path);
+      }catch(error){
+        console.log(error);
+      }
+    }
+
+    await User.update(
+      {
+      profilePicture:imageUrl,
+      fullName:fullName,
+      nim:nim,
+      angkatan:angkatan,
+      divisionId:divisi
+     },
+     {
+      where:{id:currentUser.id}
+      }
+    )
+
+    updatedUser = await  User.findOne({
+      where:{id:currentUser.id},
+      include: {
+        model: Division,
+        attributes: ['name']
+      }
+    }
+    )
+
+    res.status(200).json({
+      status:"Success",
+      message:"Succesfully edit data user",
+      user:{
+        id: updatedUser.id,
+        fullName: updatedUser.fullName,
+        angkatan: updatedUser.angkatan,
+        profilePicture:imageUrl,
+        divisi:{
+          name: updatedUser.division.name
+        }
+      }
+    })
+  }catch(error){
+    res.status(error.statusCode || 500).json({
+      status: "Error",
+      message: error.message
+    })
+  }
+}
+
 module.exports = {
-  getAllUser, getUserById, postUser, deleteUser, loginHandler, getUserByToken
+  getAllUser, getUserById, postUser, deleteUser, loginHandler, getUserByToken, editUserAccount
 }

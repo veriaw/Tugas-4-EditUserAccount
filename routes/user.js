@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
+const upload = require('../middleware/upload_file');
 
 const { 
-  getAllUser, getUserById, postUser, loginHandler, deleteUser, getUserByToken,
+  getAllUser, getUserById, postUser, loginHandler, deleteUser, getUserByToken, editUserAccount
 } = require('../controller/user');
 
 //GET ALL USER (ENDPOINT 1)
@@ -22,5 +23,7 @@ router.post("/users/login", loginHandler);
 
 //DELETE /users/:userId
 router.delete("/users/:userId", deleteUser);
+
+router.put("/users/edit-account",upload.single('image'),editUserAccount);
 
 module.exports = router;
